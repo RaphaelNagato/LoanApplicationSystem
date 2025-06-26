@@ -1,0 +1,81 @@
+@using Core.DTOs
+@using Core.Entities
+
+<div class="modal fade show" style="display: block;" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">@(EditMode ? "Edit" : "Add") Loan Application</h5>
+                <button type="button" class="btn-close" @onclick="HandleCancel"></button>
+            </div>
+            <div class="modal-body">
+                <EditForm Model="CurrentDto" OnValidSubmit="HandleSubmit">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary />
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Applicant Name</label>
+                            <InputText class="form-control" @bind-Value="CurrentDto.ApplicantName" />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Loan Amount</label>
+                            <InputNumber class="form-control" @bind-Value="CurrentDto.LoanAmount" />
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Loan Term (Months)</label>
+                            <InputNumber class="form-control" @bind-Value="CurrentDto.LoanTermMonths" />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Interest Rate</label>
+                            <InputNumber class="form-control" @bind-Value="CurrentDto.InterestRate" />
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Status</label>
+                        <InputSelect class="form-control" @bind-Value="CurrentDto.LoanStatus">
+                            @foreach (var status in Enum.GetValues(typeof(LoanApplicationStatus)))
+                            {
+                                <option value="@status">@status</option>
+                            }
+                        </InputSelect>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Application Date</label>
+                        <InputDate class="form-control" @bind-Value="CurrentDto.ApplicationDate" />
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-success me-2" type="submit">@(EditMode ? "Update" : "Add")</button>
+                        <button class="btn btn-secondary" type="button" @onclick="HandleCancel">Cancel</button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="modal-backdrop fade show"></div>
+
+@code {
+    [Parameter]
+    public LoanApplicationDto CurrentDto { get; set; } = new();
+
+    [Parameter]
+    public bool EditMode { get; set; }
+
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+
+    [Parameter]
+    public EventCallback<LoanApplicationDto> OnSubmit { get; set; }
+
+    private async Task HandleSubmit()
+    {
+        await OnSubmit.InvokeAsync(CurrentDto);
+    }
+
+    private async Task HandleCancel()
+    {
+        await OnClose.InvokeAsync();
+    }
+} 

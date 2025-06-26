@@ -1,0 +1,103 @@
+@using Core.DTOs
+@using Core.Entities
+
+@if (PaginationResult?.Items.Any() == true)
+{
+    <div class="table-responsive">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Id</th>
+                    <th>Applicant Name</th>
+                    <th>Loan Amount</th>
+                    <th>Loan Term (Months)</th>
+                    <th>Interest Rate</th>
+                    <th>Status</th>
+                    <th>Application Date</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var loan in PaginationResult.Items)
+                {
+                    <tr>
+                        <td>@loan.Id</td>
+                        <td>@loan.ApplicantName</td>
+                        <td>@loan.LoanAmount.ToString("C")</td>
+                        <td>@loan.LoanTermMonths</td>
+                        <td>@loan.InterestRate.ToString("F2")%</td>
+                        <td>
+                            <span class="badge @GetStatusBadgeClass(loan.LoanStatus)">@loan.LoanStatus</span>
+                        </td>
+                        <td>@loan.ApplicationDate.LocalDateTime.ToShortDateString()</td>
+                        <td>
+                            <button class="btn btn-sm btn-warning me-1" @onclick="() => OnEdit.InvokeAsync(loan)">Edit</button>
+                            <button class="btn btn-sm btn-danger" @onclick="() => OnDelete.InvokeAsync(loan.Id)">Delete</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    @if (PaginationResult.TotalPages > 1)
+    {
+        <nav aria-label="Loan applications pagination">
+            <ul class="pagination justify-content-center">
+                <li class="page-item @(PaginationResult.HasPreviousPage ? "" : "disabled")">
+                    <button class="page-link" @onclick="() => OnPageChange.InvokeAsync(PaginationResult.PageNumber - 1)" disabled="@(!PaginationResult.HasPreviousPage)">
+                        Previous
+                    </button>
+                </li>
+                
+                @for (int i = Math.Max(1, PaginationResult.PageNumber - 2); i <= Math.Min(PaginationResult.TotalPages, PaginationResult.PageNumber + 2); i++)
+                {
+                    var pageNumber = i;
+                    <li class="page-item @(pageNumber == PaginationResult.PageNumber ? "active" : "")">
+                        <button class="page-link" @onclick="() => OnPageChange.InvokeAsync(pageNumber)">@pageNumber</button>
+                    </li>
+                }
+                
+                <li class="page-item @(PaginationResult.HasNextPage ? "" : "disabled")">
+                    <button class="page-link" @onclick="() => OnPageChange.InvokeAsync(PaginationResult.PageNumber + 1)" disabled="@(!PaginationResult.HasNextPage)">
+                        Next
+                    </button>
+                </li>
+            </ul>
+        </nav>
+    }
+
+    <div class="text-center text-muted">
+        Showing @((PaginationResult.PageNumber - 1) * PaginationResult.PageSize + 1) to 
+        @Math.Min(PaginationResult.PageNumber * PaginationResult.PageSize, PaginationResult.TotalCount) 
+        of @PaginationResult.TotalCount entries
+    </div>
+}
+else
+{
+    <div class="alert alert-info text-center">
+        <i class="bi bi-info-circle"></i> No loan applications found matching your criteria.
+    </div>
+}
+
+@code {
+    [Parameter]
+    public PaginationResult<LoanApplicationDto>? PaginationResult { get; set; }
+
+    [Parameter]
+    public EventCallback<LoanApplicationDto> OnEdit { get; set; }
+
+    [Parameter]
+    public EventCallback<int> OnDelete { get; set; }
+    
+    [Parameter]
+    public EventCallback<int> OnPageChange { get; set; }
+
+    private string GetStatusBadgeClass(LoanApplicationStatus status) => status switch
+    {
+        LoanApplicationStatus.Pending => "bg-warning text-dark",
+        LoanApplicationStatus.Approved => "bg-success",
+        LoanApplicationStatus.Rejected => "bg-danger",
+        _ => "bg-secondary"
+    };
+} 
