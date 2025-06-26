@@ -1,3 +1,4 @@
+using Infrastructure.DependencyInjection;
 using LoanApplicationSystem.Components;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -6,7 +7,12 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
+builder.AddInfraDbContext().AddDbServices();
+
 var app = builder.Build();
+
+await using var scope = app.Services.CreateAsyncScope();
+await app.CreateMigration(scope);
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())

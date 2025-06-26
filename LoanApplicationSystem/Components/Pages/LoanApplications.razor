@@ -1,0 +1,152 @@
+@page "/loanapplications"
+@inject Infrastructure.Services.ILoanApplicationService LoanService
+
+<h3>Loan Applications</h3>
+
+@if (isLoading)
+{
+    <p>Loading...</p>
+}
+else
+{
+    <button class="btn btn-primary mb-2" @onclick="ShowAddForm">Add New Loan Application</button>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Id</th>
+                <th>Applicant Name</th>
+                <th>Loan Amount</th>
+                <th>Loan Term (Months)</th>
+                <th>Interest Rate</th>
+                <th>Status</th>
+                <th>Application Date</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var loan in loanApplications)
+            {
+                <tr>
+                    <td>@loan.Id</td>
+                    <td>@loan.ApplicantName</td>
+                    <td>@loan.LoanAmount</td>
+                    <td>@loan.LoanTermMonths</td>
+                    <td>@loan.InterestRate</td>
+                    <td>@loan.LoanStatus</td>
+                    <td>@loan.ApplicationDate.ToShortDateString()</td>
+                    <td>
+                        <button class="btn btn-sm btn-warning me-1" @onclick="() => EditLoan(loan)">Edit</button>
+                        <button class="btn btn-sm btn-danger" @onclick="() => DeleteLoan(loan.Id)">Delete</button>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@if (showForm)
+{
+    <EditForm Model="currentLoan" OnValidSubmit="HandleValidSubmit">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+        <div class="mb-2">
+            <label>Applicant Name</label>
+            <InputText class="form-control" @bind-Value="currentLoan.ApplicantName" />
+        </div>
+        <div class="mb-2">
+            <label>Loan Amount</label>
+            <InputNumber class="form-control" @bind-Value="currentLoan.LoanAmount" />
+        </div>
+        <div class="mb-2">
+            <label>Loan Term (Months)</label>
+            <InputNumber class="form-control" @bind-Value="currentLoan.LoanTermMonths" />
+        </div>
+        <div class="mb-2">
+            <label>Interest Rate</label>
+            <InputNumber class="form-control" @bind-Value="currentLoan.InterestRate" />
+        </div>
+        <div class="mb-2">
+            <label>Status</label>
+            <InputSelect class="form-control" @bind-Value="currentLoan.LoanStatus">
+                @foreach (var status in Enum.GetValues(typeof(Core.Entities.LoanApplicationStatus)))
+                {
+                    <option value="@status">@status</option>
+                }
+            </InputSelect>
+        </div>
+        <div class="mb-2">
+            <label>Application Date</label>
+            <InputDate class="form-control" @bind-Value="currentLoan.ApplicationDate" />
+        </div>
+        <button class="btn btn-success me-2" type="submit">@((editMode) ? "Update" : "Add")</button>
+        <button class="btn btn-secondary" type="button" @onclick="CancelForm">Cancel</button>
+    </EditForm>
+}
+
+@code {
+    private List<Core.Entities.LoanApplication> loanApplications = new();
+    private Core.Entities.LoanApplication currentLoan = new();
+    private bool showForm = false;
+    private bool editMode = false;
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadLoans();
+    }
+
+    private async Task LoadLoans()
+    {
+        isLoading = true;
+        loanApplications = (await LoanService.GetAllAsync(CancellationToken.None)).ToList();
+        isLoading = false;
+    }
+
+    private void ShowAddForm()
+    {
+        currentLoan = new Core.Entities.LoanApplication { ApplicationDate = DateTime.Now };
+        editMode = false;
+        showForm = true;
+    }
+
+    private void EditLoan(Core.Entities.LoanApplication loan)
+    {
+        currentLoan = new Core.Entities.LoanApplication
+        {
+            Id = loan.Id,
+            ApplicantName = loan.ApplicantName,
+            LoanAmount = loan.LoanAmount,
+            LoanTermMonths = loan.LoanTermMonths,
+            InterestRate = loan.InterestRate,
+            LoanStatus = loan.LoanStatus,
+            ApplicationDate = loan.ApplicationDate
+        };
+        editMode = true;
+        showForm = true;
+    }
+
+    private async Task DeleteLoan(int id)
+    {
+        await LoanService.DeleteAsync(id, CancellationToken.None);
+        await LoadLoans();
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        if (editMode)
+        {
+            await LoanService.UpdateAsync(currentLoan, CancellationToken.None);
+        }
+        else
+        {
+            await LoanService.AddAsync(currentLoan, CancellationToken.None);
+        }
+        showForm = false;
+        await LoadLoans();
+    }
+
+    private void CancelForm()
+    {
+        showForm = false;
+    }
+} 
