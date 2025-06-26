@@ -7,13 +7,12 @@
         <table class="table table-striped">
             <thead>
                 <tr>
-                    <th>Id</th>
+                    <th>Application Date</th>
                     <th>Applicant Name</th>
                     <th>Loan Amount</th>
                     <th>Loan Term (Months)</th>
                     <th>Interest Rate</th>
                     <th>Status</th>
-                    <th>Application Date</th>
                     <th>Actions</th>
                 </tr>
             </thead>
@@ -21,7 +20,7 @@
                 @foreach (var loan in PaginationResult.Items)
                 {
                     <tr>
-                        <td>@loan.Id</td>
+                        <td>@loan.ApplicationDate.LocalDateTime.ToShortDateString()</td>
                         <td>@loan.ApplicantName</td>
                         <td>@loan.LoanAmount.ToString("C")</td>
                         <td>@loan.LoanTermMonths</td>
@@ -29,7 +28,6 @@
                         <td>
                             <span class="badge @GetStatusBadgeClass(loan.LoanStatus)">@loan.LoanStatus</span>
                         </td>
-                        <td>@loan.ApplicationDate.LocalDateTime.ToShortDateString()</td>
                         <td>
                             <button class="btn btn-sm btn-warning me-1" @onclick="() => OnEdit.InvokeAsync(loan)">Edit</button>
                             <button class="btn btn-sm btn-danger" @onclick="() => OnDelete.InvokeAsync(loan.Id)">Delete</button>
