@@ -1,5 +1,8 @@
 @page "/loanapplications"
+@using LoanApplicationSystem.DTOs
+@using Core.Entities
 @inject Infrastructure.Services.ILoanApplicationService LoanService
+@implements IDisposable
 
 <h3>Loan Applications</h3>
 
@@ -24,14 +27,14 @@ else
             </tr>
         </thead>
         <tbody>
-            @foreach (var loan in loanApplications)
+            @foreach (var loan in loanDtos)
             {
                 <tr>
                     <td>@loan.Id</td>
                     <td>@loan.ApplicantName</td>
-                    <td>@loan.LoanAmount</td>
+                    <td>@loan.LoanAmount.ToString("C")</td>
                     <td>@loan.LoanTermMonths</td>
-                    <td>@loan.InterestRate</td>
+                    <td>@loan.InterestRate.ToString("F2")%</td>
                     <td>@loan.LoanStatus</td>
                     <td>@loan.ApplicationDate.ToShortDateString()</td>
                     <td>
@@ -46,37 +49,33 @@ else
 
 @if (showForm)
 {
-    <EditForm Model="currentLoan" OnValidSubmit="HandleValidSubmit">
+    <EditForm Model="currentDto" OnValidSubmit="HandleValidSubmit">
         <DataAnnotationsValidator />
         <ValidationSummary />
         <div class="mb-2">
             <label>Applicant Name</label>
-            <InputText class="form-control" @bind-Value="currentLoan.ApplicantName" />
+            <InputText class="form-control" @bind-Value="currentDto.ApplicantName" />
         </div>
         <div class="mb-2">
             <label>Loan Amount</label>
-            <InputNumber class="form-control" @bind-Value="currentLoan.LoanAmount" />
+            <InputNumber class="form-control" @bind-Value="currentDto.LoanAmount" />
         </div>
         <div class="mb-2">
             <label>Loan Term (Months)</label>
-            <InputNumber class="form-control" @bind-Value="currentLoan.LoanTermMonths" />
+            <InputNumber class="form-control" @bind-Value="currentDto.LoanTermMonths" />
         </div>
         <div class="mb-2">
             <label>Interest Rate</label>
-            <InputNumber class="form-control" @bind-Value="currentLoan.InterestRate" />
+            <InputNumber class="form-control" @bind-Value="currentDto.InterestRate" />
         </div>
         <div class="mb-2">
             <label>Status</label>
-            <InputSelect class="form-control" @bind-Value="currentLoan.LoanStatus">
-                @foreach (var status in Enum.GetValues(typeof(Core.Entities.LoanApplicationStatus)))
+            <InputSelect class="form-control" @bind-Value="currentDto.LoanStatus">
+                @foreach (var status in Enum.GetValues(typeof(LoanApplicationStatus)))
                 {
                     <option value="@status">@status</option>
                 }
             </InputSelect>
-        </div>
-        <div class="mb-2">
-            <label>Application Date</label>
-            <InputDate class="form-control" @bind-Value="currentLoan.ApplicationDate" />
         </div>
         <button class="btn btn-success me-2" type="submit">@((editMode) ? "Update" : "Add")</button>
         <button class="btn btn-secondary" type="button" @onclick="CancelForm">Cancel</button>
@@ -84,11 +83,12 @@ else
 }
 
 @code {
-    private List<Core.Entities.LoanApplication> loanApplications = new();
-    private Core.Entities.LoanApplication currentLoan = new();
+    private List<LoanApplicationDto> loanDtos = new();
+    private LoanApplicationDto currentDto = new();
     private bool showForm = false;
     private bool editMode = false;
     private bool isLoading = true;
+    private CancellationTokenSource _cancellationTokenSource = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -97,21 +97,36 @@ else
 
     private async Task LoadLoans()
     {
-        isLoading = true;
-        loanApplications = (await LoanService.GetAllAsync(CancellationToken.None)).ToList();
-        isLoading = false;
+        try
+        {
+            isLoading = true;
+            var entities = await LoanService.GetAllAsync(_cancellationTokenSource.Token);
+            loanDtos = LoanApplicationDto.FromEntities(entities).ToList();
+        }
+        catch (OperationCanceledException)
+        {
+            // Operation was cancelled, which is expected when component is disposed
+        }
+        finally
+        {
+            isLoading = false;
+        }
     }
 
     private void ShowAddForm()
     {
-        currentLoan = new Core.Entities.LoanApplication { ApplicationDate = DateTime.Now };
+        currentDto = new LoanApplicationDto
+        {
+            ApplicationDate = DateTime.Now,
+            LoanStatus = LoanApplicationStatus.Pending
+        };
         editMode = false;
         showForm = true;
     }
 
-    private void EditLoan(Core.Entities.LoanApplication loan)
+    private void EditLoan(LoanApplicationDto loan)
     {
-        currentLoan = new Core.Entities.LoanApplication
+        currentDto = new LoanApplicationDto
         {
             Id = loan.Id,
             ApplicantName = loan.ApplicantName,
@@ -127,26 +142,48 @@ else
 
     private async Task DeleteLoan(int id)
     {
-        await LoanService.DeleteAsync(id, CancellationToken.None);
-        await LoadLoans();
+        try
+        {
+            await LoanService.DeleteAsync(id, _cancellationTokenSource.Token);
+            await LoadLoans();
+        }
+        catch (OperationCanceledException)
+        {
+            // Operation was cancelled, which is expected when component is disposed
+        }
     }
 
     private async Task HandleValidSubmit()
     {
-        if (editMode)
+        try
         {
-            await LoanService.UpdateAsync(currentLoan, CancellationToken.None);
+            var loanApplication = LoanApplicationDto.ToEntity(currentDto);
+
+            if (editMode)
+            {
+                await LoanService.UpdateAsync(loanApplication, _cancellationTokenSource.Token);
+            }
+            else
+            {
+                await LoanService.AddAsync(loanApplication, _cancellationTokenSource.Token);
+            }
+            showForm = false;
+            await LoadLoans();
         }
-        else
+        catch (OperationCanceledException)
         {
-            await LoanService.AddAsync(currentLoan, CancellationToken.None);
+            // Operation was cancelled, which is expected when component is disposed
         }
-        showForm = false;
-        await LoadLoans();
     }
 
     private void CancelForm()
     {
         showForm = false;
+    }
+
+    public void Dispose()
+    {
+        _cancellationTokenSource?.Cancel();
+        _cancellationTokenSource?.Dispose();
     }
 } 
