@@ -18,6 +18,8 @@ internal class LoanApplicationConfiguration : IEntityTypeConfiguration<LoanAppli
         builder.Property(x => x.LoanStatus).HasConversion(
             s => s.ToString(),
             s => Enum.Parse<LoanApplicationStatus>(s)).IsRequired().HasMaxLength(50);
-        builder.Property(x => x.ApplicationDate).IsRequired();
+        builder.Property(x => x.ApplicationDate).IsRequired().HasConversion(
+            v => v.ToUniversalTime(),
+            v => v);
     }
 }

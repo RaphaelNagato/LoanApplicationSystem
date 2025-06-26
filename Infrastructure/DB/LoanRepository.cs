@@ -1,4 +1,6 @@
 ﻿using Core.Entities;
+using Core.Spec;
+using Infrastructure.Spec;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -6,19 +8,16 @@ namespace Infrastructure.DB;
 
 internal class LoanRepository(LoanDbContext context, ILogger<LoanRepository> logger) : ILoanRepository
 {
-    private readonly LoanDbContext _context = context ?? throw new ArgumentNullException(nameof(context));
-    private readonly ILogger<LoanRepository> _logger = logger;
-
     public async Task<LoanApplication?> GetByIdAsync(int id, CancellationToken ct)
     {
         try
         {
-            var result = await _context.LoanApplications.FindAsync([id], ct);
+            var result = await context.LoanApplications.FindAsync([id], ct);
             return result;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Database error while querying loan application with ID: {LoanId}", id);
+            logger.LogError(ex, "Database error while querying loan application with ID: {LoanId}", id);
             throw;
         }
     }
@@ -27,12 +26,41 @@ internal class LoanRepository(LoanDbContext context, ILogger<LoanRepository> log
     {
         try
         {
-            var result = await _context.LoanApplications.ToListAsync(ct);
+            // No tracking since this is read-only
+            var result = await context.LoanApplications.AsNoTracking().ToListAsync(ct);
             return result;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Database error while querying all loan applications");
+            logger.LogError(ex, "Database error while querying all loan applications");
+            throw;
+        }
+    }
+
+    public async Task<IEnumerable<LoanApplication>> GetAsync(BaseSpecification<LoanApplication> spec, CancellationToken ct)
+    {
+        try
+        {
+            var query = SpecificationEvaluator<LoanApplication>.GetQuery(context.LoanApplications.AsNoTracking(), spec);
+            return await query.ToListAsync(ct);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Database error while querying loan applications with specification");
+            throw;
+        }
+    }
+
+    public async Task<int> CountAsync(BaseSpecification<LoanApplication> spec, CancellationToken ct)
+    {
+        try
+        {
+            var query = SpecificationEvaluator<LoanApplication>.GetQuery(context.LoanApplications.AsNoTracking(), spec);
+            return await query.CountAsync(ct);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Database error while counting loan applications with specification");
             throw;
         }
     }
@@ -41,12 +69,12 @@ internal class LoanRepository(LoanDbContext context, ILogger<LoanRepository> log
     {
         try
         {
-            await _context.LoanApplications.AddAsync(loanApplication, ct);
-            await _context.SaveChangesAsync(ct);
+            await context.LoanApplications.AddAsync(loanApplication, ct);
+            await context.SaveChangesAsync(ct);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Database error while adding loan application for applicant: {ApplicantName}", loanApplication.ApplicantName);
+            logger.LogError(ex, "Database error while adding loan application for applicant: {ApplicantName}", loanApplication.ApplicantName);
             throw;
         }
     }
@@ -55,12 +83,24 @@ internal class LoanRepository(LoanDbContext context, ILogger<LoanRepository> log
     {
         try
         {
-            _context.LoanApplications.Update(loanApplication);
-            await _context.SaveChangesAsync(ct);
+            var trackedEntity = context.ChangeTracker
+                .Entries<LoanApplication>()
+                .FirstOrDefault(e => e.Entity.Id == loanApplication.Id);
+
+            if (trackedEntity == null)
+            {
+                context.LoanApplications.Attach(loanApplication);
+            }
+            else if (!ReferenceEquals(trackedEntity.Entity, loanApplication))
+            {
+                trackedEntity.CurrentValues.SetValues(loanApplication);
+            }
+
+            await context.SaveChangesAsync(ct);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Database error while updating loan application with ID: {LoanId}", loanApplication.Id);
+            logger.LogError(ex, "Database error while updating loan application with ID: {LoanId}", loanApplication.Id);
             throw;
         }
     }
@@ -72,18 +112,19 @@ internal class LoanRepository(LoanDbContext context, ILogger<LoanRepository> log
             var loanApplication = await GetByIdAsync(id, ct);
             if (loanApplication != null)
             {
-                _context.LoanApplications.Remove(loanApplication);
-                await _context.SaveChangesAsync(ct);
+                context.LoanApplications.Remove(loanApplication);
+                await context.SaveChangesAsync(ct);
             }
             else
             {
-                _logger.LogWarning("Attempted to delete loan application with ID {LoanId} but it was not found", id);
+                logger.LogWarning("Attempted to delete loan application with ID {LoanId} but it was not found", id);
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Database error while deleting loan application with ID: {LoanId}", id);
+            logger.LogError(ex, "Database error while deleting loan application with ID: {LoanId}", id);
             throw;
         }
     }
 }
+
