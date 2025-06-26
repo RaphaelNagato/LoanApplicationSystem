@@ -83,19 +83,7 @@ internal class LoanRepository(LoanDbContext context, ILogger<LoanRepository> log
     {
         try
         {
-            var trackedEntity = context.ChangeTracker
-                .Entries<LoanApplication>()
-                .FirstOrDefault(e => e.Entity.Id == loanApplication.Id);
-
-            if (trackedEntity == null)
-            {
-                context.LoanApplications.Attach(loanApplication);
-            }
-            else if (!ReferenceEquals(trackedEntity.Entity, loanApplication))
-            {
-                trackedEntity.CurrentValues.SetValues(loanApplication);
-            }
-
+            // The entity is already tracked, so just save changes.
             await context.SaveChangesAsync(ct);
         }
         catch (Exception ex)

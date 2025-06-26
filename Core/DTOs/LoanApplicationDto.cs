@@ -1,7 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using Core.Entities;
 
-namespace LoanApplicationSystem.DTOs;
+namespace Core.DTOs;
 
 public class LoanApplicationDto
 {
@@ -24,10 +24,23 @@ public class LoanApplicationDto
     public decimal InterestRate { get; set; }
 
     public LoanApplicationStatus LoanStatus { get; set; } = LoanApplicationStatus.Pending;
-    public DateTime ApplicationDate { get; set; } = DateTime.Now;
 
-    
-    // Static mapper methods
+    public DateTimeOffset ApplicationDate { get; set; } = DateTimeOffset.Now;
+
+    public LoanApplication ToEntity()
+    {
+        return new LoanApplication
+        {
+            Id = this.Id,
+            ApplicantName = this.ApplicantName,
+            LoanAmount = this.LoanAmount,
+            LoanTermMonths = this.LoanTermMonths,
+            InterestRate = this.InterestRate,
+            LoanStatus = this.LoanStatus,
+            ApplicationDate = this.ApplicationDate
+        };
+    }
+
     public static LoanApplicationDto FromEntity(LoanApplication entity)
     {
         return new LoanApplicationDto
@@ -39,20 +52,6 @@ public class LoanApplicationDto
             InterestRate = entity.InterestRate,
             LoanStatus = entity.LoanStatus,
             ApplicationDate = entity.ApplicationDate
-        };
-    }
-
-    public static LoanApplication ToEntity(LoanApplicationDto dto)
-    {
-        return new LoanApplication
-        {
-            Id = dto.Id,
-            ApplicantName = dto.ApplicantName,
-            LoanAmount = dto.LoanAmount,
-            LoanTermMonths = dto.LoanTermMonths,
-            InterestRate = dto.InterestRate,
-            LoanStatus = dto.LoanStatus,
-            ApplicationDate = dto.ApplicationDate
         };
     }
 
