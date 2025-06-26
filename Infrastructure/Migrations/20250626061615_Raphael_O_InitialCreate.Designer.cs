@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Infrastructure.Migrations
 {
     [DbContext(typeof(LoanDbContext))]
-    [Migration("20250626041147_Raphael_O_InitialCreate")]
+    [Migration("20250626061615_Raphael_O_InitialCreate")]
     partial class Raphael_O_InitialCreate
     {
         /// <inheritdoc />
@@ -38,7 +38,7 @@ namespace Infrastructure.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)");
 
-                    b.Property<DateTime>("ApplicationDate")
+                    b.Property<DateTimeOffset>("ApplicationDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<decimal>("InterestRate")

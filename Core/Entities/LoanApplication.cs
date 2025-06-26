@@ -8,7 +8,7 @@ public class LoanApplication
     public int LoanTermMonths { get; set; }
     public decimal InterestRate { get; set; }
     public LoanApplicationStatus LoanStatus { get; set; }
-    public DateTime ApplicationDate { get; set; }
+    public DateTimeOffset ApplicationDate { get; set; }
 }
 
 public enum LoanApplicationStatus

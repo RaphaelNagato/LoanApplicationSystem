@@ -35,7 +35,7 @@ namespace Infrastructure.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)");
 
-                    b.Property<DateTime>("ApplicationDate")
+                    b.Property<DateTimeOffset>("ApplicationDate")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<decimal>("InterestRate")

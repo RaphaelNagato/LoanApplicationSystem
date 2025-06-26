@@ -23,7 +23,7 @@ namespace Infrastructure.Migrations
                     LoanTermMonths = table.Column<int>(type: "integer", nullable: false),
                     InterestRate = table.Column<decimal>(type: "numeric(5,2)", precision: 5, scale: 2, nullable: false),
                     LoanStatus = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
-                    ApplicationDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                    ApplicationDate = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false)
                 },
                 constraints: table =>
                 {
