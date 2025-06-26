@@ -1,7 +1,14 @@
 using Infrastructure.DependencyInjection;
 using LoanApplicationSystem.Components;
+using LoanApplicationSystem.Middleware;
+using Microsoft.Extensions.Logging;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Configure logging
+builder.Logging.ClearProviders();
+builder.Logging.AddConsole();
+builder.Logging.AddDebug();
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
@@ -22,8 +29,10 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
-app.UseHttpsRedirection();
+// Add custom exception handling middleware
+app.UseExceptionHandling();
 
+app.UseHttpsRedirection();
 
 app.UseAntiforgery();
 

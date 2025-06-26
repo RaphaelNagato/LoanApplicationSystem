@@ -2,6 +2,7 @@
 @using LoanApplicationSystem.DTOs
 @using Core.Entities
 @inject Infrastructure.Services.ILoanApplicationService LoanService
+@inject ILogger<LoanApplications> Logger
 @implements IDisposable
 
 <h3>Loan Applications</h3>
@@ -92,6 +93,7 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        Logger.LogDebug("Initializing Loan Applications page");
         await LoadLoans();
     }
 
@@ -99,13 +101,18 @@ else
     {
         try
         {
+            Logger.LogDebug("Loading loan applications");
             isLoading = true;
             var entities = await LoanService.GetAllAsync(_cancellationTokenSource.Token);
             loanDtos = LoanApplicationDto.FromEntities(entities).ToList();
         }
         catch (OperationCanceledException)
         {
-            // Operation was cancelled, which is expected when component is disposed
+            Logger.LogDebug("Loan loading operation was cancelled");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading loan applications");
         }
         finally
         {
@@ -115,6 +122,7 @@ else
 
     private void ShowAddForm()
     {
+        Logger.LogDebug("User initiated add loan application form");
         currentDto = new LoanApplicationDto
         {
             ApplicationDate = DateTime.Now,
@@ -126,6 +134,7 @@ else
 
     private void EditLoan(LoanApplicationDto loan)
     {
+        Logger.LogDebug("User initiated edit for loan application ID: {LoanId}", loan.Id);
         currentDto = new LoanApplicationDto
         {
             Id = loan.Id,
@@ -144,12 +153,17 @@ else
     {
         try
         {
+            Logger.LogDebug("User initiated delete for loan application ID: {LoanId}", id);
             await LoanService.DeleteAsync(id, _cancellationTokenSource.Token);
             await LoadLoans();
         }
         catch (OperationCanceledException)
         {
-            // Operation was cancelled, which is expected when component is disposed
+            Logger.LogDebug("Delete operation was cancelled for loan application ID: {LoanId}", id);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error deleting loan application ID: {LoanId}", id);
         }
     }
 
@@ -161,10 +175,12 @@ else
 
             if (editMode)
             {
+                Logger.LogDebug("User submitted update for loan application ID: {LoanId}", loanApplication.Id);
                 await LoanService.UpdateAsync(loanApplication, _cancellationTokenSource.Token);
             }
             else
             {
+                Logger.LogDebug("User submitted new loan application for applicant: {ApplicantName}", loanApplication.ApplicantName);
                 await LoanService.AddAsync(loanApplication, _cancellationTokenSource.Token);
             }
             showForm = false;
@@ -172,17 +188,23 @@ else
         }
         catch (OperationCanceledException)
         {
-            // Operation was cancelled, which is expected when component is disposed
+            Logger.LogDebug("Form submission operation was cancelled");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error processing loan application form submission");
         }
     }
 
     private void CancelForm()
     {
+        Logger.LogDebug("User cancelled loan application form");
         showForm = false;
     }
 
     public void Dispose()
     {
+        Logger.LogDebug("Disposing Loan Applications component");
         _cancellationTokenSource?.Cancel();
         _cancellationTokenSource?.Dispose();
     }
