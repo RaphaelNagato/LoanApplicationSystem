@@ -1,5 +1,5 @@
 @page "/loanapplications"
-@using LoanApplicationSystem.DTOs
+@using Core.DTOs
 @using Core.Entities
 @inject Infrastructure.Services.ILoanApplicationService LoanService
 @inject ILogger<LoanApplications> Logger
@@ -7,89 +7,243 @@
 
 <h3>Loan Applications</h3>
 
+<div class="row mb-3">
+    <div class="col-md-4">
+        <div class="input-group">
+            <input type="text" class="form-control" placeholder="Search by applicant name..." 
+                   @bind="SearchTerm" @bind:event="oninput" />
+            <button class="btn btn-outline-secondary" type="button">
+                <i class="bi bi-search"></i>
+            </button>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <select class="form-select" @bind="SelectedStatus">
+            <option value="">All Statuses</option>
+            @foreach (var status in Enum.GetValues(typeof(LoanApplicationStatus)))
+            {
+                <option value="@status">@status</option>
+            }
+        </select>
+    </div>
+    <div class="col-md-2">
+        <select class="form-select" @bind="PageSize">
+            <option value="5">5 per page</option>
+            <option value="10">10 per page</option>
+            <option value="20">20 per page</option>
+            <option value="50">50 per page</option>
+        </select>
+    </div>
+    <div class="col-md-3 text-end">
+        <button class="btn btn-primary" @onclick="ShowAddForm">Add New Loan Application</button>
+    </div>
+</div>
+
 @if (isLoading)
 {
-    <p>Loading...</p>
+    <div class="text-center">
+        <div class="spinner-border" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
 }
 else
 {
-    <button class="btn btn-primary mb-2" @onclick="ShowAddForm">Add New Loan Application</button>
-    <table class="table table-striped">
-        <thead>
-            <tr>
-                <th>Id</th>
-                <th>Applicant Name</th>
-                <th>Loan Amount</th>
-                <th>Loan Term (Months)</th>
-                <th>Interest Rate</th>
-                <th>Status</th>
-                <th>Application Date</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var loan in loanDtos)
-            {
-                <tr>
-                    <td>@loan.Id</td>
-                    <td>@loan.ApplicantName</td>
-                    <td>@loan.LoanAmount.ToString("C")</td>
-                    <td>@loan.LoanTermMonths</td>
-                    <td>@loan.InterestRate.ToString("F2")%</td>
-                    <td>@loan.LoanStatus</td>
-                    <td>@loan.ApplicationDate.ToShortDateString()</td>
-                    <td>
-                        <button class="btn btn-sm btn-warning me-1" @onclick="() => EditLoan(loan)">Edit</button>
-                        <button class="btn btn-sm btn-danger" @onclick="() => DeleteLoan(loan.Id)">Delete</button>
-                    </td>
-                </tr>
-            }
-        </tbody>
-    </table>
+    @if (paginationResult?.Items.Any() == true)
+    {
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Id</th>
+                        <th>Applicant Name</th>
+                        <th>Loan Amount</th>
+                        <th>Loan Term (Months)</th>
+                        <th>Interest Rate</th>
+                        <th>Status</th>
+                        <th>Application Date</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var loan in paginationResult.Items)
+                    {
+                        <tr>
+                            <td>@loan.Id</td>
+                            <td>@loan.ApplicantName</td>
+                            <td>@loan.LoanAmount.ToString("C")</td>
+                            <td>@loan.LoanTermMonths</td>
+                            <td>@loan.InterestRate.ToString("F2")%</td>
+                            <td>
+                                <span class="badge @GetStatusBadgeClass(loan.LoanStatus)">@loan.LoanStatus</span>
+                            </td>
+                            <td>@loan.ApplicationDate.LocalDateTime.ToShortDateString()</td>
+                            <td>
+                                <button class="btn btn-sm btn-warning me-1" @onclick="() => EditLoan(loan)">Edit</button>
+                                <button class="btn btn-sm btn-danger" @onclick="() => DeleteLoan(loan.Id)">Delete</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        @if (paginationResult.TotalPages > 1)
+        {
+            <nav aria-label="Loan applications pagination">
+                <ul class="pagination justify-content-center">
+                    <li class="page-item @(paginationResult.HasPreviousPage ? "" : "disabled")">
+                        <button class="page-link" @onclick="() => ChangePage(paginationResult.PageNumber - 1)" disabled="@(!paginationResult.HasPreviousPage)">
+                            Previous
+                        </button>
+                    </li>
+                    
+                    @for (int i = Math.Max(1, paginationResult.PageNumber - 2); i <= Math.Min(paginationResult.TotalPages, paginationResult.PageNumber + 2); i++)
+                    {
+                        var pageNumber = i;
+                        <li class="page-item @(pageNumber == paginationResult.PageNumber ? "active" : "")">
+                            <button class="page-link" @onclick="() => ChangePage(pageNumber)">@pageNumber</button>
+                        </li>
+                    }
+                    
+                    <li class="page-item @(paginationResult.HasNextPage ? "" : "disabled")">
+                        <button class="page-link" @onclick="() => ChangePage(paginationResult.PageNumber + 1)" disabled="@(!paginationResult.HasNextPage)">
+                            Next
+                        </button>
+                    </li>
+                </ul>
+            </nav>
+        }
+
+        <div class="text-center text-muted">
+            Showing @((paginationResult.PageNumber - 1) * paginationResult.PageSize + 1) to 
+            @Math.Min(paginationResult.PageNumber * paginationResult.PageSize, paginationResult.TotalCount) 
+            of @paginationResult.TotalCount entries
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-info text-center">
+            <i class="bi bi-info-circle"></i> No loan applications found matching your criteria.
+        </div>
+    }
 }
 
 @if (showForm)
 {
-    <EditForm Model="currentDto" OnValidSubmit="HandleValidSubmit">
-        <DataAnnotationsValidator />
-        <ValidationSummary />
-        <div class="mb-2">
-            <label>Applicant Name</label>
-            <InputText class="form-control" @bind-Value="currentDto.ApplicantName" />
+    <div class="modal fade show" style="display: block;" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@((editMode) ? "Edit" : "Add") Loan Application</h5>
+                    <button type="button" class="btn-close" @onclick="CancelForm"></button>
+                </div>
+                <div class="modal-body">
+                    <EditForm Model="currentDto" OnValidSubmit="HandleValidSubmit">
+                        <DataAnnotationsValidator />
+                        <ValidationSummary />
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Applicant Name</label>
+                                <InputText class="form-control" @bind-Value="currentDto.ApplicantName" />
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Loan Amount</label>
+                                <InputNumber class="form-control" @bind-Value="currentDto.LoanAmount" />
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Loan Term (Months)</label>
+                                <InputNumber class="form-control" @bind-Value="currentDto.LoanTermMonths" />
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Interest Rate</label>
+                                <InputNumber class="form-control" @bind-Value="currentDto.InterestRate" />
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Status</label>
+                            <InputSelect class="form-control" @bind-Value="currentDto.LoanStatus">
+                                @foreach (var status in Enum.GetValues(typeof(LoanApplicationStatus)))
+                                {
+                                    <option value="@status">@status</option>
+                                }
+                            </InputSelect>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Application Date</label>
+                            <InputDate class="form-control" @bind-Value="currentDto.ApplicationDate" />
+                        </div>
+                        <div class="modal-footer">
+                            <button class="btn btn-success me-2" type="submit">@((editMode) ? "Update" : "Add")</button>
+                            <button class="btn btn-secondary" type="button" @onclick="CancelForm">Cancel</button>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
         </div>
-        <div class="mb-2">
-            <label>Loan Amount</label>
-            <InputNumber class="form-control" @bind-Value="currentDto.LoanAmount" />
-        </div>
-        <div class="mb-2">
-            <label>Loan Term (Months)</label>
-            <InputNumber class="form-control" @bind-Value="currentDto.LoanTermMonths" />
-        </div>
-        <div class="mb-2">
-            <label>Interest Rate</label>
-            <InputNumber class="form-control" @bind-Value="currentDto.InterestRate" />
-        </div>
-        <div class="mb-2">
-            <label>Status</label>
-            <InputSelect class="form-control" @bind-Value="currentDto.LoanStatus">
-                @foreach (var status in Enum.GetValues(typeof(LoanApplicationStatus)))
-                {
-                    <option value="@status">@status</option>
-                }
-            </InputSelect>
-        </div>
-        <button class="btn btn-success me-2" type="submit">@((editMode) ? "Update" : "Add")</button>
-        <button class="btn btn-secondary" type="button" @onclick="CancelForm">Cancel</button>
-    </EditForm>
+    </div>
+    <div class="modal-backdrop fade show"></div>
 }
 
 @code {
-    private List<LoanApplicationDto> loanDtos = new();
+    private PaginationResult<LoanApplicationDto>? paginationResult;
     private LoanApplicationDto currentDto = new();
     private bool showForm = false;
     private bool editMode = false;
     private bool isLoading = true;
     private CancellationTokenSource _cancellationTokenSource = new();
+
+    // Filtering and pagination parameters
+    private string? searchTerm;
+    private LoanApplicationStatus? selectedStatus;
+    private int currentPage = 1;
+    private int pageSize = 10;
+    private Timer? searchTimer;
+
+    private string? SearchTerm
+    {
+        get => searchTerm;
+        set
+        {
+            if (searchTerm != value)
+            {
+                searchTerm = value;
+                searchTimer?.Dispose();
+                searchTimer = new Timer(async _ =>
+                {
+                    await InvokeAsync(HandleSearch);
+                }, null, 500, Timeout.Infinite);
+            }
+        }
+    }
+    
+    private LoanApplicationStatus? SelectedStatus
+    {
+        get => selectedStatus;
+        set
+        {
+            if (selectedStatus != value)
+            {
+                selectedStatus = value;
+                _ = HandleSearch();
+            }
+        }
+    }
+
+    private int PageSize
+    {
+        get => pageSize;
+        set
+        {
+            if (pageSize != value)
+            {
+                pageSize = value;
+                _ = HandlePageSizeChange();
+            }
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -101,10 +255,9 @@ else
     {
         try
         {
-            Logger.LogDebug("Loading loan applications");
+            Logger.LogDebug("Loading loan applications with page: {CurrentPage}, size: {PageSize}, term: '{SearchTerm}', status: {SelectedStatus}", currentPage, pageSize, searchTerm, selectedStatus);
             isLoading = true;
-            var entities = await LoanService.GetAllAsync(_cancellationTokenSource.Token);
-            loanDtos = LoanApplicationDto.FromEntities(entities).ToList();
+            paginationResult = await LoanService.GetPaginatedAsync(searchTerm, selectedStatus, currentPage, pageSize, _cancellationTokenSource.Token);
         }
         catch (OperationCanceledException)
         {
@@ -117,17 +270,43 @@ else
         finally
         {
             isLoading = false;
+            await InvokeAsync(StateHasChanged);
         }
     }
+
+    private async Task HandleSearch()
+    {
+        currentPage = 1; 
+        await LoadLoans();
+    }
+
+    private async Task HandlePageSizeChange()
+    {
+        currentPage = 1;
+        await LoadLoans();
+    }
+
+    private async Task ChangePage(int page)
+    {
+        if (page >= 1 && page <= (paginationResult?.TotalPages ?? 1))
+        {
+            currentPage = page;
+            await LoadLoans();
+        }
+    }
+
+    private string GetStatusBadgeClass(LoanApplicationStatus status) => status switch
+    {
+        LoanApplicationStatus.Pending => "bg-warning text-dark",
+        LoanApplicationStatus.Approved => "bg-success",
+        LoanApplicationStatus.Rejected => "bg-danger",
+        _ => "bg-secondary"
+    };
 
     private void ShowAddForm()
     {
         Logger.LogDebug("User initiated add loan application form");
-        currentDto = new LoanApplicationDto
-        {
-            ApplicationDate = DateTime.Now,
-            LoanStatus = LoanApplicationStatus.Pending
-        };
+        currentDto = new LoanApplicationDto();
         editMode = false;
         showForm = true;
     }
@@ -135,16 +314,7 @@ else
     private void EditLoan(LoanApplicationDto loan)
     {
         Logger.LogDebug("User initiated edit for loan application ID: {LoanId}", loan.Id);
-        currentDto = new LoanApplicationDto
-        {
-            Id = loan.Id,
-            ApplicantName = loan.ApplicantName,
-            LoanAmount = loan.LoanAmount,
-            LoanTermMonths = loan.LoanTermMonths,
-            InterestRate = loan.InterestRate,
-            LoanStatus = loan.LoanStatus,
-            ApplicationDate = loan.ApplicationDate
-        };
+        currentDto = loan;
         editMode = true;
         showForm = true;
     }
@@ -171,17 +341,15 @@ else
     {
         try
         {
-            var loanApplication = LoanApplicationDto.ToEntity(currentDto);
-
             if (editMode)
             {
-                Logger.LogDebug("User submitted update for loan application ID: {LoanId}", loanApplication.Id);
-                await LoanService.UpdateAsync(loanApplication, _cancellationTokenSource.Token);
+                Logger.LogDebug("User submitted update for loan application ID: {LoanId}", currentDto.Id);
+                await LoanService.UpdateAsync(currentDto.Id, currentDto, _cancellationTokenSource.Token);
             }
             else
             {
-                Logger.LogDebug("User submitted new loan application for applicant: {ApplicantName}", loanApplication.ApplicantName);
-                await LoanService.AddAsync(loanApplication, _cancellationTokenSource.Token);
+                Logger.LogDebug("User submitted new loan application for applicant: {ApplicantName}", currentDto.ApplicantName);
+                await LoanService.AddAsync(currentDto, _cancellationTokenSource.Token);
             }
             showForm = false;
             await LoadLoans();
@@ -205,6 +373,7 @@ else
     public void Dispose()
     {
         Logger.LogDebug("Disposing Loan Applications component");
+        searchTimer?.Dispose();
         _cancellationTokenSource?.Cancel();
         _cancellationTokenSource?.Dispose();
     }
