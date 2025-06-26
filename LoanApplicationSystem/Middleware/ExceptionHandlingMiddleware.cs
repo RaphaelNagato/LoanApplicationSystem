@@ -3,31 +3,20 @@ using System.Text.Json;
 
 namespace LoanApplicationSystem.Middleware;
 
-public class ExceptionHandlingMiddleware
+public class ExceptionHandlingMiddleware(
+    RequestDelegate next,
+    ILogger<ExceptionHandlingMiddleware> logger,
+    IWebHostEnvironment environment)
 {
-    private readonly RequestDelegate _next;
-    private readonly ILogger<ExceptionHandlingMiddleware> _logger;
-    private readonly IWebHostEnvironment _environment;
-
-    public ExceptionHandlingMiddleware(
-        RequestDelegate next,
-        ILogger<ExceptionHandlingMiddleware> logger,
-        IWebHostEnvironment environment)
-    {
-        _next = next;
-        _logger = logger;
-        _environment = environment;
-    }
-
     public async Task InvokeAsync(HttpContext context)
     {
         try
         {
-            await _next(context);
+            await next(context);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "An unhandled exception occurred: {Message}", ex.Message);
+            logger.LogError(ex, "An unhandled exception occurred: {Message}", ex.Message);
             await HandleExceptionAsync(context, ex);
         }
     }
@@ -40,8 +29,8 @@ public class ExceptionHandlingMiddleware
         {
             error = new
             {
-                message = _environment.IsDevelopment() ? exception.Message : "An error occurred while processing your request.",
-                details = _environment.IsDevelopment() ? exception.StackTrace : null
+                message = environment.IsDevelopment() ? exception.Message : "An error occurred while processing your request.",
+                details = environment.IsDevelopment() ? exception.StackTrace : null
             }
         };
 
